@@ -12,8 +12,8 @@ class VariableBound:
         bound (int): The bound value.
     """
     def __init__(self, varName=None, direction=None, bound=None):
-        assert direction in ('U', 'L')
-        assert isinstance(bound, int)
+        assert not direction or direction in ('U', 'L')
+        assert not bound or isinstance(bound, int)
 
         self.varName = varName
         self.direction = direction
@@ -47,11 +47,13 @@ class Node:
         self.var_bound = VariableBound()
         self.depth = parent.depth + 1 if parent else 1
 
+
     def branch(self):
         """Creates two children from a node."""
         assert not self.left and not self.right
         self.left = Node(parent=self)
         self.right = Node(parent=self)
+
 
     def __repr__(self):
         """Returns a string representation of the node."""
@@ -69,6 +71,7 @@ class Tree:
     def __init__(self):
         self.root = Node()
         self.node_limit = int(1e6)
+
 
     def search(self, key, node):
         """
@@ -91,6 +94,7 @@ class Tree:
 
         return self.search(key, node.left) or self.search(key, node.right)
 
+
     def get_path_to_root(self, node):
         """Returns the path from the given node to the root."""
         assert node
@@ -99,6 +103,7 @@ class Tree:
             path.append(node.parent)
             node = node.parent
         return path
+
 
     def find_intersection(self, node1, node2):
         """Finds the common ancestor of two nodes."""
@@ -120,26 +125,32 @@ class UnexploredList:
     def __init__(self):
         self.queue = []
 
+
     def __str__(self):
         return ' '.join(str(node.key) for _, _, node in self.queue)
+
 
     def is_empty(self):
         """Checks if the queue is empty."""
         return len(self.queue) == 0
 
+
     def insert(self, node):
         """Inserts a node into the priority queue."""
         heapq.heappush(self.queue, (-node.objective, node.key, node))
+
 
     def pop(self):
         """Removes and returns the node with the highest priority."""
         if self.is_empty():
             raise IndexError("pop from an empty queue")
         return heapq.heappop(self.queue)[2]
-    
+
+
     def peek(self):
         """Returns the node with the highest priority without removing it."""
         return self.queue[0][2] if not self.is_empty() else None
+
 
     def size(self):
         """Returns the number of nodes in the queue."""
@@ -153,6 +164,7 @@ class Bounds:
         self.best_bound = -1e10
         self.absolute_tol = 1
         self.relative_tol = 1e-5
+
 
     def check_convergence(self):
         """Function to check if the algorithm has converged"""
@@ -176,6 +188,7 @@ class BranchAndBound:
         self.best_solution = None
         self.node_limit = 1e5
 
+
     def converges(self):
         """Checks if the algorithm should stop based on convergence criteria."""
         if self.unexplored_list.is_empty():
@@ -191,22 +204,63 @@ class BranchAndBound:
 
         # If best unexplored node is worse than best integer solution
         next_best_node = self.unexplored_list.peek()
-        if next_best_node and next_best_node.objective > self.best_objective:
+        if next_best_node and next_best_node.objective > self.bounds.best_objective:
             self.unexplored_list = UnexploredList()
             return True
 
         return False
 
+
     def is_solution_integer(self):
         """Checks if the solution is integer-valued."""
         return all(var.value().is_integer() for var in self.model.variables())
 
+
+    def reset_model(self, origin_node, target_node):
+        # TODO(paula): write function reset_model
+        pass
+
+
+    def update_model(self, origin_node, target_node):
+        # TODO(paula): write function update_model
+        pass
+
+
+    def traverse(self, origin, destination):
+        common_node = self.tree.find_intersection(origin, destination)
+
+        # Reset model to common node (remove variable bounds up branch)
+        self.reset_model(origin, common_node)
+
+        # Update model to avoid errors
+        # TODO(paula): update model
+
+        # Add variable bounds down branch
+        self.update_model(common_node, destination)
+
+        # Update model at the end
+        # TODO(paula): update model
+
+
+    def branch(self, node):
+        # Select most fractional variable in solution
+        # TODO(paula): most fractional branching
+        node.branch()
+
+        # Add variable bound to children nodes
+        node.left.bound = VariableBound()
+        node.right.bound = VariableBound()
+
+
     def solve_node(self, node):
         """Solves the LP relaxation at a given node."""
-        self.model.solve()
+        self.model.solve(pulp.PULP_CBC_CMD(msg=False))
         node.objective = self.model.objective.value()
 
-        if node.objective > self.best_objective:
+        print()
+        print(f"SOLVE NODE {node.key}, objective={node.objective}")
+
+        if node.objective > self.bounds.best_objective:
             return
 
         if self.is_solution_integer():
@@ -217,18 +271,39 @@ class BranchAndBound:
             self.unexplored_list.insert(node)
             self.best_bound = self.unexplored_list.peek().objective
 
-    def solve(self):
+
+    def optimize(self):
         """Runs the branch-and-bound algorithm."""
+        # Solve root node
         self.solve_node(self.tree.root)
         previous_node = self.tree.root
 
+        # If list of unexplored is not empty, branch
         while not self.unexplored_list.is_empty():
+            # Look for next node to solve (best bound search)
             selected_node = self.unexplored_list.pop()
-            assert selected_node.objective < self.best_objective
+            assert selected_node.objective < self.bounds.best_objective
 
-            self.solve_node(selected_node)
+            # Update model to the selected_node
+            self.traverse(previous_node, selected_node)
+
+            # Branch on selected node
+            self.branch(selected_node)
+
+            # Solve left child node
+            self.solve_node(selected_node.left)
+
+            # Remove bounds from left node
+            self.traverse(selected_node.left, selected_node.right);
+
+            # Solve right child node
+            self.solve_node(selected_node.right)
+
+            # Check if we found the optimal solution or proved infeasibility
             if self.converges():
                 return
+
+            # Make current node the previos node
             previous_node = selected_node
 
 
