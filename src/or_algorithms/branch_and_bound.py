@@ -307,7 +307,7 @@ class BranchAndBound:
         while not self.unexplored_list.is_empty():
             # Look for next node to solve (best bound search)
             selected_node = self.unexplored_list.pop()
-            assert selected_node.objective < self.bounds.best_objective
+            assert selected_node.obj < self.bounds.best_obj
 
             # Update model to the selected_node
             self.traverse(previous_node, selected_node)
@@ -316,12 +316,11 @@ class BranchAndBound:
             self.branch(selected_node)
 
             # Solve left child node
+            self.traverse(selected_node, selected_node.left)
             self.solve_node(selected_node.left)
 
-            # Remove bounds from left node
-            self.traverse(selected_node.left, selected_node.right);
-
             # Solve right child node
+            self.traverse(selected_node.left, selected_node.right)
             self.solve_node(selected_node.right)
 
             # Check if we found the optimal solution or proved infeasibility
@@ -330,5 +329,3 @@ class BranchAndBound:
 
             # Make current node the previos node
             previous_node = selected_node
-
-
