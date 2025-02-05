@@ -241,36 +241,61 @@ class BranchAndBound:
         # Update model at the end
         # TODO(paula): update model
 
+    def find_most_fractional_variable(self):
+        # TODO(paula): Check solution is feasible with assertion
+        best_fraction = 0
+        best_var = None
+
+        for var in self.model.variables():
+            lower = var.value() - math.floor(var.value())
+            upper = math.ceil(var.value()) - var.value()
+
+            fraction = max(lower, upper)
+
+            if fraction < 1 and fraction > best_fraction:
+                best_fraction = fraction
+                best_var = var
+
+        assert best_fraction > 0
+
+        return best_var
 
     def branch(self, node):
-        # Select most fractional variable in solution
-        # TODO(paula): most fractional branching
+        # Create branches
         node.branch()
 
-        # Add variable bound to children nodes
-        node.left.bound = VariableBound()
-        node.right.bound = VariableBound()
+        # Select most fractional variable in solution
+        var = self.find_most_fractional_variable()
 
+        # Add variable bound to children nodes
+        node.left.bound = VariableBound(
+            var.name,  'U', math.floor(var.value())
+        )
+        node.left.previous_bound = VariableBound(var.name,  'U', var.upBound)
+
+        node.right.bound = VariableBound(
+            var.name, 'L', math.ceil(var.value())
+        )
+        node.left.previous_bound = VariableBound(var.name,  'L', var.lowBound)
 
     def solve_node(self, node):
         """Solves the LP relaxation at a given node."""
         self.model.solve(pulp.PULP_CBC_CMD(msg=False))
-        node.objective = self.model.objective.value()
+        node.obj = self.model.obj.value()
 
         print()
-        print(f"SOLVE NODE {node.key}, objective={node.objective}")
+        print(f"SOLVE NODE {node.key}, obj={node.obj}")
 
-        if node.objective > self.bounds.best_objective:
+        if node.obj > self.bounds.best_obj:
             return
 
         if self.is_solution_integer():
             node.is_integer = True
-            self.best_objective = node.objective
+            self.best_obj = node.obj
             self.best_solution = None  # TODO: Update best solution
         else:
             self.unexplored_list.insert(node)
-            self.best_bound = self.unexplored_list.peek().objective
-
+            self.best_bound = self.unexplored_list.peek().obj
 
     def optimize(self):
         """Runs the branch-and-bound algorithm."""
