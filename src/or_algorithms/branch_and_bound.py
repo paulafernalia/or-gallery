@@ -83,7 +83,7 @@ class Tree:
         Returns:
             Node | None: The matching node if found, else None.
         """
-        assert key > 1
+        assert key >= 1
 
         if not node or node.key > key:
             return None
