@@ -1,5 +1,8 @@
-setuptest:
+unit_test:
+	pytest
+
+setup_test:
 	pip install -e ".[dev]"
 
-setupnormal:
+setup_normal:
 	pip install -e .
