@@ -284,14 +284,8 @@ class BranchAndBound:
         # Reset model to common node (remove variable bounds up branch)
         self.reset_model(origin, common_node)
 
-        # Update model to avoid errors
-        # TODO(paula): update model
-
         # Add variable bounds down branch
         self.update_model(common_node, destination)
-
-        # Update model at the end
-        # TODO(paula): update model
 
     def find_most_fractional_variable(self):
         # TODO(paula): Check solution is feasible with assertion
