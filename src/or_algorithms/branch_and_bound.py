@@ -204,27 +204,62 @@ class BranchAndBound:
 
         # If best unexplored node is worse than best integer solution
         next_best_node = self.unexplored_list.peek()
-        if next_best_node and next_best_node.objective > self.bounds.best_objective:
+        if next_best_node and next_best_node.obj > self.bounds.best_obj:
             self.unexplored_list = UnexploredList()
             return True
 
         return False
 
-
     def is_solution_integer(self):
         """Checks if the solution is integer-valued."""
         return all(var.value().is_integer() for var in self.model.variables())
 
-
     def reset_model(self, origin_node, target_node):
-        # TODO(paula): write function reset_model
-        pass
+        if origin_node == target_node or not origin_node.parent:
+            return
 
+        # Remove variable bounds
+        if not origin_node.bound:
+            return
+
+        # Get a variable by name
+        variables_dict = self.model.variablesDict()
+
+        print(origin_node.bound.varName, origin_node.key)
+        var = variables_dict[origin_node.bound.varName]
+
+        assert origin_node.bound.varName == origin_node.previous_bound.varName
+        assert origin_node.bound.dir == origin_node.previous_bound.dir
+
+        if origin_node.bound.dir == 'U':
+            var.upBound = origin_node.previous_bound.bound
+        else:
+            var.lowBound = origin_node.previous_bound.bound
+
+        assert origin_node.parent
+
+        self.reset_model(origin_node.parent)
 
     def update_model(self, origin_node, target_node):
-        # TODO(paula): write function update_model
-        pass
+        if origin_node == target_node:
+            return
 
+        assert target_node.parent
+
+        # Backtrack to start from the origin node
+        self.update_model(origin_node, target_node.parent)
+
+        # Add variable bounds
+        variables_dict = self.model.variablesDict()
+        var = variables_dict[origin_node.bounds.varName]
+
+        assert origin_node.bound.varName == origin_node.previous_bound.varName
+        assert origin_node.bound.dir == origin_node.previous_bound.dir
+
+        if origin_node.bounds.dir == 'U':
+            var.upBound = origin_node.bound.bound
+        else:
+            var.lowBound = origin_node.bound.bound
 
     def traverse(self, origin, destination):
         common_node = self.tree.find_intersection(origin, destination)
