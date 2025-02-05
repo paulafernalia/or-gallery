@@ -1,5 +1,5 @@
 unit_test:
-	pytest -v
+	pytest -vv -s
 
 setup_test:
 	pip install -e ".[dev]"

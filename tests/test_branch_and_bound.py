@@ -123,3 +123,49 @@ def test_insert_in_unexplored_list(empty_unexplored_list):
     assert empty_unexplored_list.pop() == node
     assert empty_unexplored_list.size == 0
     assert empty_unexplored_list.is_empty
+
+
+def test_insert_multiple_in_unexplored_list(empty_unexplored_list):
+    node1 = bb.Node(obj=10)
+    node2 = bb.Node(obj=20)
+    node3 = bb.Node(obj=30)
+
+    empty_unexplored_list.insert(node3)
+    empty_unexplored_list.insert(node1)
+    empty_unexplored_list.insert(node2)
+
+    assert empty_unexplored_list.size == 3
+    assert empty_unexplored_list.pop() == node1
+    assert empty_unexplored_list.pop() == node2
+    assert empty_unexplored_list.pop() == node3
+
+
+@pytest.fixture
+def simple_bounds():
+    return bb.Bounds()
+
+
+def test_bounds_covergence_basic_1(simple_bounds):
+    assert not simple_bounds.check_convergence()
+
+
+def test_bounds_covergence_basic_2(simple_bounds):
+    simple_bounds.update_best_obj(10)
+    simple_bounds.update_best_bound(5)
+
+    assert not simple_bounds.check_convergence()
+
+
+def test_bounds_covergence_relative(simple_bounds):
+    simple_bounds._absolute_tol = 0
+    simple_bounds.update_best_obj(5.00001)
+    simple_bounds.update_best_bound(5)
+
+    assert simple_bounds.check_convergence()
+
+
+def test_bounds_covergence_absolute(simple_bounds):
+    simple_bounds.update_best_obj(5.5)
+    simple_bounds.update_best_bound(5)
+
+    assert simple_bounds.check_convergence()

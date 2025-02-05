@@ -120,54 +120,77 @@ class Tree:
 class UnexploredList:
     """Priority queue for unexplored nodes, sorted by objective value."""
     def __init__(self):
-        self.queue = []
+        self._queue = []
 
     def __str__(self):
-        return ' '.join(str(node.key) for _, _, node in self.queue)
+        return ' '.join(str(node.key) for _, _, node in self._queue)
 
     @property
     def is_empty(self):
         """Checks if the queue is empty."""
-        return len(self.queue) == 0
+        return len(self._queue) == 0
 
     def insert(self, node):
         """Inserts a node into the priority queue."""
         assert node and node.obj
-        heapq.heappush(self.queue, (-node.obj, node.key, node))
+        heapq.heappush(self._queue, (node.obj, node.key, node))
 
     def pop(self):
         """Removes and returns the node with the highest priority."""
         if self.is_empty:
             raise IndexError("pop from an empty queue")
-        return heapq.heappop(self.queue)[2]
+        return heapq.heappop(self._queue)[2]
 
     def peek(self):
         """Returns the node with the highest priority without removing it."""
-        return self.queue[0][2] if not self.is_empty else None
+        return self._queue[0][2] if not self.is_empty else None
 
     @property
     def size(self):
         """Returns the number of nodes in the queue."""
-        return len(self.queue)
+        return len(self._queue)
 
 
 class Bounds:
     """Lower and upper bounds for branch and bound algorithm"""
     def __init__(self):
-        self.best_ob = 1e10
-        self.best_bound = -1e10
-        self.absolute_tol = 1
-        self.relative_tol = 1e-5
+        self._best_obj = 1e10
+        self._best_bound = -1e10
+        self._absolute_tol = 1
+        self._relative_tol = 1e-5
+        self._absolute_gap = 1e10
+        self._relative_gap = 1e10
+
+    def update_gaps(self):
+        self._absolute_gap = self._best_obj - self._best_bound
+        self._relative_gap = abs(self._absolute_gap / self._best_bound)
+
+    def update_best_obj(self, value):
+        assert value >= self._best_bound
+        assert value < self._best_obj
+        self._best_obj = value
+        self.update_gaps()
+
+    def update_best_bound(self, value):
+        assert self._best_obj >= value
+        assert value > self._best_bound
+        self._best_bound = value
+        self.update_gaps()
+
+    @property
+    def best_obj(self):
+        return self._best_obj
+
+    @property
+    def best_bound(self):
+        return self._best_bound
 
     def check_convergence(self):
         """Function to check if the algorithm has converged"""
-        absolute_gap = self.best_obj - self.best_bound
-        relative_gap = absolute_gap / self.best_bound
-
-        if absolute_gap < self.absolute_tol:
+        if self._absolute_gap < self._absolute_tol:
             return True
 
-        if relative_gap < self.relative_tol:
+        if self._relative_gap < self._relative_tol:
             return True
 
         return False
