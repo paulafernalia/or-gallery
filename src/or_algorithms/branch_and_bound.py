@@ -125,24 +125,27 @@ class UnexploredList:
     def __str__(self):
         return ' '.join(str(node.key) for _, _, node in self.queue)
 
+    @property
     def is_empty(self):
         """Checks if the queue is empty."""
         return len(self.queue) == 0
 
     def insert(self, node):
         """Inserts a node into the priority queue."""
+        assert node and node.obj
         heapq.heappush(self.queue, (-node.obj, node.key, node))
 
     def pop(self):
         """Removes and returns the node with the highest priority."""
-        if self.is_empty():
+        if self.is_empty:
             raise IndexError("pop from an empty queue")
         return heapq.heappop(self.queue)[2]
 
     def peek(self):
         """Returns the node with the highest priority without removing it."""
-        return self.queue[0][2] if not self.is_empty() else None
+        return self.queue[0][2] if not self.is_empty else None
 
+    @property
     def size(self):
         """Returns the number of nodes in the queue."""
         return len(self.queue)

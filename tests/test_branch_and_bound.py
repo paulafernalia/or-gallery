@@ -99,3 +99,27 @@ def test_find_intersection_super_big_tree(big_tree):
     )
 
     assert obtained == big_tree.root.left
+
+
+@pytest.fixture
+def empty_unexplored_list():
+    """Fixture for a simple tree with a root node"""
+    unexplored_list = bb.UnexploredList()
+    return unexplored_list
+
+
+def test_insert_in_unexplored_list(empty_unexplored_list):
+    """Test inserting a node in the queue"""
+    node = bb.Node(obj=10)
+    empty_unexplored_list.insert(node)
+
+    assert not empty_unexplored_list.is_empty
+    assert empty_unexplored_list.size == 1
+
+    assert empty_unexplored_list.peek() == node
+    assert empty_unexplored_list.size == 1
+    assert not empty_unexplored_list.is_empty
+
+    assert empty_unexplored_list.pop() == node
+    assert empty_unexplored_list.size == 0
+    assert empty_unexplored_list.is_empty
