@@ -1,59 +1,59 @@
 import heapq
 import pulp
+import math
 
 
 class VariableBound:
     """
     Represents a variable bound in a branch-and-bound algorithm.
-    
+
     Attributes:
         varName (str | None): Name of the variable.
-        direction (str): 'U' for upper bound, 'L' for lower bound.
+        dir_ (str): 'U' for upper bound, 'L' for lower bound.
         bound (int): The bound value.
     """
-    def __init__(self, varName=None, direction=None, bound=None):
-        assert not direction or direction in ('U', 'L')
+    def __init__(self, varName=None, dir_=None, bound=None):
+        assert not dir_ or dir_ in ('U', 'L')
         assert not bound or isinstance(bound, int)
 
         self.varName = varName
-        self.direction = direction
+        self.dir_ = dir_
         self.bound = bound
 
 
 class Node:
     """
     Represents a node in a branch-and-bound tree.
-    
+
     Attributes:
         key (int): Unique identifier of the node.
         left (Node | None): Left child node.
         right (Node | None): Right child node.
         parent (Node | None): Parent node.
-        objective (float | None): Solution to the LP relaxation of the node.
+        obj (float | None): Solution to the LP relaxation of the node.
         is_integer (bool): Whether the solution is integer.
         depth (int): Depth within the branch-and-bound tree.
-        var_bound (VariableBound): The variable bound associated with this node.
+        var_bound (VariableBound): The variable bound linked to this node.
     """
     count = 0
 
-    def __init__(self, parent=None, objective=None, left=None, right=None):
+    def __init__(self, parent=None, obj=None, left=None, right=None):
         Node.count += 1
         self.key = Node.count
         self.left = left
         self.right = right
         self.parent = parent
-        self.objective = objective
+        self.obj = obj
         self.is_integer = False
-        self.var_bound = VariableBound()
+        self.bound = VariableBound()
+        self.previous_bound = VariableBound()
         self.depth = parent.depth + 1 if parent else 1
-
 
     def branch(self):
         """Creates two children from a node."""
         assert not self.left and not self.right
         self.left = Node(parent=self)
         self.right = Node(parent=self)
-
 
     def __repr__(self):
         """Returns a string representation of the node."""
@@ -63,7 +63,7 @@ class Node:
 class Tree:
     """
     Represents a binary tree for the branch-and-bound process.
-    
+
     Attributes:
         root (Node): Root node of the tree.
         node_limit (int): Maximum number of nodes allowed.
@@ -72,11 +72,10 @@ class Tree:
         self.root = Node()
         self.node_limit = int(1e6)
 
-
     def search(self, key, node):
         """
         Finds a node in the tree that matches the given key.
-        
+
         Args:
             key (int): The unique ID of the node to find.
             node (Node | None): The node from which to start searching.
@@ -94,7 +93,6 @@ class Tree:
 
         return self.search(key, node.left) or self.search(key, node.right)
 
-
     def get_path_to_root(self, node):
         """Returns the path from the given node to the root."""
         assert node
@@ -103,7 +101,6 @@ class Tree:
             path.append(node.parent)
             node = node.parent
         return path
-
 
     def find_intersection(self, node1, node2):
         """Finds the common ancestor of two nodes."""
@@ -125,20 +122,16 @@ class UnexploredList:
     def __init__(self):
         self.queue = []
 
-
     def __str__(self):
         return ' '.join(str(node.key) for _, _, node in self.queue)
-
 
     def is_empty(self):
         """Checks if the queue is empty."""
         return len(self.queue) == 0
 
-
     def insert(self, node):
         """Inserts a node into the priority queue."""
-        heapq.heappush(self.queue, (-node.objective, node.key, node))
-
+        heapq.heappush(self.queue, (-node.obj, node.key, node))
 
     def pop(self):
         """Removes and returns the node with the highest priority."""
@@ -146,11 +139,9 @@ class UnexploredList:
             raise IndexError("pop from an empty queue")
         return heapq.heappop(self.queue)[2]
 
-
     def peek(self):
         """Returns the node with the highest priority without removing it."""
         return self.queue[0][2] if not self.is_empty() else None
-
 
     def size(self):
         """Returns the number of nodes in the queue."""
@@ -160,22 +151,23 @@ class UnexploredList:
 class Bounds:
     """Lower and upper bounds for branch and bound algorithm"""
     def __init__(self):
-        self.best_objective = 1e10
+        self.best_ob = 1e10
         self.best_bound = -1e10
         self.absolute_tol = 1
         self.relative_tol = 1e-5
 
-
     def check_convergence(self):
         """Function to check if the algorithm has converged"""
-        if (self.best_objective - self.best_bound) / self.best_bound < self.relative_tol:
+        absolute_gap = self.best_obj - self.best_bound
+        relative_gap = absolute_gap / self.best_bound
+
+        if absolute_gap < self.absolute_tol:
             return True
 
-        if (self.best_objective - self.best_bound) < self.absolute_tol:
+        if relative_gap < self.relative_tol:
             return True
 
         return False
-
 
 
 class BranchAndBound:
@@ -188,9 +180,8 @@ class BranchAndBound:
         self.best_solution = None
         self.node_limit = 1e5
 
-
     def converges(self):
-        """Checks if the algorithm should stop based on convergence criteria."""
+        """Checks if the algorithm shas converged."""
         if self.unexplored_list.is_empty():
             return True
 
