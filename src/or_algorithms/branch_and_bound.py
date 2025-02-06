@@ -4,10 +4,11 @@ import math
 from typing import Dict, List, Optional
 from or_algorithms import utils
 
-BB_OPTIMAL = 2
-BB_NODE_LIMIT = 3
-BB_INFEASIBLE = 4
+BB_UNBOUNDED = -2
+BB_INFEASIBLE = -1
 BB_NOT_CONVERGED = 0
+BB_OPTIMAL = 1
+BB_NODE_LIMIT = 2
 
 
 class VariableBound:
@@ -70,7 +71,6 @@ class Node:
         right (Node | None): Right child node.
         parent (Node | None): Parent node.
         obj (float | None): Solution to the LR of the node.
-        is_integer (bool): Whether the solution is integer.
         depth (int): Depth within the branch-and-bound tree.
         var_bound (VariableBound): The variable bound linked to this 
             node.
@@ -93,7 +93,6 @@ class Node:
         self.right = right
         self.parent = parent
         self.obj = obj
-        self.is_integer = False
         self.bound = VariableBound()
         self.previous_bound = VariableBound()
         self.depth = parent.depth + 1 if parent else 1
@@ -295,12 +294,12 @@ class Bounds:
     """
     def __init__(self) -> None:
         """Initializes the bounds with default values."""
-        self._best_obj: float = 1e10
-        self._best_bound: float = -1e10
+        self._best_obj: float = math.inf
+        self._best_bound: float = -math.inf
         self._absolute_tol: float = 1
         self._relative_tol: float = 1e-5
-        self._absolute_gap: float = 1e10
-        self._relative_gap: float = 1e10
+        self._absolute_gap: float = math.inf
+        self._relative_gap: float = math.inf
 
     def update_gaps(self) -> None:
         """Updates the absolute and relative gaps."""
@@ -317,8 +316,9 @@ class Bounds:
         Raises:
             ValueError: If the value is not within the valid range.
         """
-        if value < self._best_bound or value >= self._best_obj:
-            raise ValueError("Invalid best objective value")
+        if value >= self._best_obj:
+            raise ValueError(f"New objective {value} cannot be worse than current best {self._best_bound}")
+
         self._best_obj = value
         self.update_gaps()
 
@@ -332,8 +332,12 @@ class Bounds:
         Raises:
             ValueError: If the value is not within the valid range.
         """
-        if self._best_obj < value or value <= self._best_bound:
-            raise ValueError("Invalid best bound value")
+        if self._best_obj < value:
+            raise ValueError(f"New bound {value} cannot be worse than best objective {self._best_obj}")
+
+        if value < self._best_bound:
+            raise ValueError(f"New bound {value} cannot be better than current best {self._best_bound}")
+
         self._best_bound = value
         self.update_gaps()
 
@@ -409,7 +413,7 @@ class BranchAndBound:
         self.node_limit = int(1e5)
         self.z = 1e10
 
-    def converges(self) -> int:
+    def check_convergence(self) -> int:
         """
         Checks if the algorithm has converged.
 
@@ -420,14 +424,23 @@ class BranchAndBound:
             ValueError: If the solution is not found and unexplored
                 list is empty.
         """
-        # If optimality gap is below tolerances
+
+        # If list of unexplored nodes is empty
+        if self.unexplored_list.is_empty:
+            # Update best bound
+            self.bounds.update_best_bound(self.bounds.best_obj)
+
+            # If a solution was found, problem is optimal
+            if self.solution:
+                # Mark as optimal
+                return BB_OPTIMAL
+
+            # Else the problem is infeasible
+            return BB_INFEASIBLE
+
+        # If optimality gap is below tolerances and list is not empty
         if self.bounds.check_convergence():
             return BB_OPTIMAL
-
-        if self.unexplored_list.is_empty:
-            if self.solution:
-                raise ValueError("Solution cannot exist")
-            return BB_INFEASIBLE
 
         # If maximum number of nodes is exceeded
         if Node.count > self.node_limit:
@@ -590,45 +603,71 @@ class BranchAndBound:
 
     def print_headers(self) -> None:
         """Print headers of branch and bound progress."""
-        print("Node  | Unexpl | IntInf |    Bound  |  Objective |       Gap")
-        print("------|--------|--------|-----------|------------|-----------")
+        print("Node  | Unexpl |        Obj | IntInf | LowBound  | UpperBound |       Gap")
+        print("------|--------|------------|--------|-----------|------------|-----------")
 
     def print_inner_node_progress(self, node: Node) -> None:
-        frac_vars = utils.count_fractional_variables(node.solution)
+        if -math.inf < node.obj < math.inf:
+            frac_vars = utils.count_fractional_variables(node.solution)
+        else:
+            frac_vars = 0
 
         """Print current progress to screen with aligned columns."""
         output = f" {node.key:<5}|"  # Left-aligned, width 6
         output += f" {self.unexplored_list.size:>6} |"
+
+        if node.obj > self.bounds.best_obj:
+            output += "     cutoff |"
+        else:
+            output += f" {node.obj:>10,.2f} |"
+
         output += f" {frac_vars:>6} |"
-        output += f" {self.bounds.best_bound:>9,.2f} |"
-        output += f" {self.bounds.best_obj:>10,.2f} |"
-        output += f" {self.bounds.best_obj * 100:>6,.2f}% |"
+
+        bound_mod = min(self.bounds.best_bound, node.parent.obj)
+        output += f" {bound_mod:>9,.2f} |"
+
+        if self.solution:
+            output += f" {self.bounds.best_obj:>10,.2f} |"
+
+            gap_mod = (self.bounds.best_obj - bound_mod) / bound_mod
+            output += f" {gap_mod * 100:>8,.2f}% |"
+        else:
+            output += "          - |         - |"
 
         print(output)
 
     def print_root_node_progress(self) -> None:
-        frac_vars = utils.count_fractional_variables(self.tree.root.solution)
+        if self.tree.root.obj == math.inf:
+            print("Root node LP infeasible")
+        elif self.tree.root.obj == -math.inf:
+            print("Root node solved. Objective=inf")
+        else:
+            frac_vars = utils.count_fractional_variables(
+                self.tree.root.solution
+            )
 
-        output = "Root node LP solved. "
-        output += f"Objective={self.tree.root.obj:,.2f}. "
-        output += f"Fractional variables={frac_vars}.\n"
+            output = "Root node LP solved. "
+            output += f"Objective={self.tree.root.obj:,.2f}. "
+            output += f"Fractional variables={frac_vars}.\n"
 
-        print(output)
+            print(output)
 
     def print_mip_solution(self) -> None:
-        assert utils.count_fractional_variables(self.solution) == 0
+        # Print solution of each variable to screen
+        if self.solution:
+            output = "\nMIP solved. "
+            output += f"Best objective={self.bounds.best_obj:,.4f}. "
+            output += f"Best bound={self.bounds.best_bound:,.4f}. "
+            output += f"Gap={self.bounds.gap * 100:,.4f}%."
+            print(output)
 
-        output = "\nMIP solved. "
-        output += f"Best objective={self.bounds.best_obj:,.4f}. "
-        output += f"Best bound={self.bounds.best_bound:,.4f}. "
-        output += f"Gap={self.bounds.gap * 100:,.4f}%."
+            print("\nSolution:")
+            for name, value in self.solution.items():
+                print(f"* {name} = {value:,.4f}")
 
-        print(output)
-
-        print("\nSolution:")
-
-        for var in self.model.variables():
-            print(f"- {var.name} = {var.value():,.4f}")
+            assert utils.count_fractional_variables(self.solution) == 0
+        else:
+            print("\nProblem infeasible.")
 
     def solve_node(self, node: Node) -> None:
         """
@@ -637,33 +676,45 @@ class BranchAndBound:
         Args:
             node (Node): The node to solve.
         """
-        self.model.solve(pulp.PULP_CBC_CMD(msg=False))
+        status = self.model.solve(pulp.PULP_CBC_CMD(msg=False))
 
-        # Store solution
-        node.obj = self.model.objective.value()
-        node.solution = {
-            var.name: var.value() for var in self.model.variables()
-        }
+        if status == -1:
+            # If infeasible
+            node.obj = math.inf
+        elif status == 1:
+            # If optimal
+            node.obj = self.model.objective.value()
+            node.solution = {
+                var.name: var.value() for var in self.model.variables()
+            }
+        elif status == -2:
+            # If unbounded
+            node.obj = -math.inf
+            self.bounds.update_best_obj(-math.inf)
+        else:
+            raise ValueError(f"Unexpected status code {status}")
 
+        # If node is cutoff
         if node.obj > self.bounds.best_obj:
             self.print_inner_node_progress(node)
             return
 
-        if self.is_solution_integer():
-            node.is_integer = True
-            self.bounds.update_best_obj(node.obj)
-            self.z = node.obj
-            self.solution = node.solution
-        else:
-            self.unexplored_list.insert(node)
+        # If the solution is integer
+        if status == 1:
+            if self.is_solution_integer():
+                self.bounds.update_best_obj(node.obj)
+                self.z = node.obj
+                self.solution = node.solution
+            else:
+                self.unexplored_list.insert(node)
 
-            # Update best bound with the objective of the best unexplored
-            best_lb_node = self.unexplored_list.peek()
+                # Update best bound with the objective of the best unexplored
+                best_lb_node = self.unexplored_list.peek()
 
-            if not best_lb_node:
-                raise ValueError("Node must exist")
+                if not best_lb_node:
+                    raise ValueError("Node must exist")
 
-            self.bounds.update_best_bound(best_lb_node.obj)
+                self.bounds.update_best_bound(best_lb_node.obj)
 
         # Print progress to screen
         if node.parent:
@@ -696,6 +747,9 @@ class BranchAndBound:
         if not self.unexplored_list.is_empty:
             self.print_headers()
 
+        # Intialise status
+        status = self.check_convergence()
+
         # If list of unexplored is not empty, branch
         while not self.unexplored_list.is_empty:
             # Look for next node to solve (best bound search)
@@ -718,9 +772,27 @@ class BranchAndBound:
             self.solve_node(selected_node.right)
 
             # Check if we found the optimal solution or proved infeasibility
-            if self.converges():
-                self.print_mip_solution()
-                return
+            status = self.check_convergence()
+            if status != 0:
+                break
 
             # Make current node the previous node
             previous_node = selected_node
+
+        # Check optimization status
+        if status == BB_UNBOUNDED:
+            print("\nMIP Infeasible. No solution found.")
+        elif status == BB_INFEASIBLE:
+            print("\nMIP Unbounded. Best objective=inf")
+        else:
+            # If must have converged in the root
+            if not self.check_convergence():
+                raise ValueError("Unexpected best objective")
+
+            # Print solution
+            if status == BB_NODE_LIMIT:
+                print("Node limit reached")
+            elif status != BB_OPTIMAL:
+                raise ValueError("Solution must be optimal at this point")
+
+            self.print_mip_solution()
