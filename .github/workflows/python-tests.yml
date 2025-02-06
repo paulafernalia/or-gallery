@@ -31,7 +31,7 @@ jobs:
           pytest --maxfail=1 --disable-warnings -q  # Adjust test options as necessary
 
       - name: Upload test results (optional)
-        uses: actions/upload-artifact@v2  # Updated to the latest supported version
+        uses: actions/upload-artifact@v4  # Updated to the latest supported version
         with:
           name: test-results
           path: ./test-reports  # Optional: specify the directory where your test results are saved
