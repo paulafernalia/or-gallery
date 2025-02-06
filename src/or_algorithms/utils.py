@@ -1,8 +1,8 @@
-from typing import Dict
+from typing import Dict, Optional
 import math
 
 
-def count_fractional_variables(solution: Dict[str, float]) -> int:
+def count_fractional_variables(solution: Optional[Dict[str, float]]) -> int:
     """Count how many fractional variables are there in the solution"""
 
     if not solution:

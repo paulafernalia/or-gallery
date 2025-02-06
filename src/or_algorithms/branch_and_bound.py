@@ -72,35 +72,44 @@ class Node:
         parent (Node | None): Parent node.
         obj (float | None): Solution to the LR of the node.
         depth (int): Depth within the branch-and-bound tree.
-        var_bound (VariableBound): The variable bound linked to this 
+        var_bound (VariableBound | None): The variable bound linked to this 
             node.
+        solution (Optional[Dict[str, float]]): Solution to the LR of the node.
     """
     count = 0
 
-    def __init__(self, parent=None, obj=None, left=None, right=None) -> None:
+    def __init__(
+        self,
+        parent=None,
+        left=None,
+        right=None,
+        obj=math.inf
+    ) -> None:
         """
         Initialises a new node.
 
         Args:
             parent (Node | None): Parent node.
-            obj (float | None): Solution to the LR of the node.
+            obj (float): Solution to the LR of the node.
             left (Node | None): Left child node.
             right (Node | None): Right child node.
         """
         Node.count += 1
-        self.key = Node.count
-        self.left = left
-        self.right = right
-        self.parent = parent
-        self.obj = obj
-        self.bound = VariableBound()
-        self.previous_bound = VariableBound()
-        self.depth = parent.depth + 1 if parent else 1
-        self.solution = None
+        self.key: int = Node.count
+        self.left: Optional[Node] = left
+        self.right: Optional[Node] = right
+        self.parent: Optional[Node] = parent
+        self.obj: float = obj
+        self.bound: VariableBound = VariableBound()
+        self.previous_bound: VariableBound = VariableBound()
+        self.depth: int = parent.depth + 1 if parent else 1
+        self.solution: Optional[Dict[str, float]] = None
 
     def branch(self) -> None:
         """Creates two children from a node."""
-        assert not self.left and not self.right
+        if self.left or self.right:
+            raise RuntimeError("Cannot branch: Node already has children.")
+
         self.left = Node(parent=self)
         self.right = Node(parent=self)
 
@@ -259,14 +268,17 @@ class UnexploredList:
             raise IndexError("pop from an empty queue")
         return heapq.heappop(self._queue)[2]
 
-    def peek(self) -> Optional['Node']:
+    def peek(self) -> 'Node':
         """Returns the node with the highest priority without removing it.
 
         Returns:
             Optional[Node]: The node with the highest priority, or None if 
                 the queue is empty.
         """
-        return self._queue[0][2] if not self.is_empty else None
+        if self.is_empty:
+            raise ValueError("Cannot take a peek at an empty list")
+
+        return self._queue[0][2]
 
     @property
     def size(self) -> int:
@@ -590,6 +602,8 @@ class BranchAndBound:
         # Select most fractional variable in solution
         var = self.find_most_fractional_variable()
 
+        assert node.left and node.right
+
         # Add variable bound to children nodes
         node.left.bound = VariableBound(
             var.name, 'U', math.floor(var.value())
@@ -603,10 +617,15 @@ class BranchAndBound:
 
     def print_headers(self) -> None:
         """Print headers of branch and bound progress."""
-        print("Node  | Unexpl |        Obj | IntInf | LowBound  | UpperBound |       Gap")
-        print("------|--------|------------|--------|-----------|------------|-----------")
+        print("Node  | Unexpl |        Obj | IntInf |")
+        print(" LowBound  | UpperBound |       Gap")
+        print("------|--------|------------|--------|")
+        print("-----------|------------|-----------")
 
     def print_inner_node_progress(self, node: Node) -> None:
+        if not node.parent:
+            raise ValueError("Inner node must have a parent")
+
         if -math.inf < node.obj < math.inf:
             frac_vars = utils.count_fractional_variables(node.solution)
         else:
@@ -754,6 +773,7 @@ class BranchAndBound:
         while not self.unexplored_list.is_empty:
             # Look for next node to solve (best bound search)
             selected_node = self.unexplored_list.pop()
+
             if selected_node.obj >= self.bounds.best_obj:
                 raise ValueError("Objective value exceeds bounds")
 
@@ -762,6 +782,9 @@ class BranchAndBound:
 
             # Branch on selected node
             self.branch(selected_node)
+
+            if not selected_node.left or not selected_node.right:
+                raise ValueError("Node must have two children")
 
             # Solve left child node
             self.traverse(selected_node, selected_node.left)
