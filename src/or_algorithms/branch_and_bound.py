@@ -172,6 +172,7 @@ class Tree:
         Raises:
             ValueError: If the node is None.
         """
+        return None
         if not node:
             raise ValueError("Node cannot be None")
 
