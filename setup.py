@@ -7,10 +7,11 @@ setup(
     package_dir={"": "src"},
     install_requires=[
         'PuLP==2.9.0',
-        'numpy>=1.14.5'
+        'numpy>=1.14.5',
+        'networkx=3.4.2',
     ],
     extras_require={
-        'interactive': ['jupyter'],
+        'interactive': ['jupyter', 'matplotlib'],
         'dev': ['pytest', 'flake8', 'mypy'],
     },
 )
