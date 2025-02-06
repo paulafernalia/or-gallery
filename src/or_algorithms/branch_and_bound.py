@@ -1,6 +1,13 @@
 import heapq
 import pulp
 import math
+from typing import Dict, List, Optional
+
+
+BB_OPTIMAL = 2
+BB_NODE_LIMIT = 3
+BB_INFEASIBLE = 4
+BB_NOT_CONVERGED = 0
 
 
 class VariableBound:
@@ -12,13 +19,45 @@ class VariableBound:
         dir_ (str): 'U' for upper bound, 'L' for lower bound.
         bound (int): The bound value.
     """
-    def __init__(self, varName=None, dir_=None, bound=None):
-        assert not dir_ or dir_ in ('U', 'L')
-        assert not bound or isinstance(bound, int)
+    def __init__(
+        self,
+        varName: str | None = None,
+        dir_: str | None = None,
+        bound: int | None = None
+    ):
+        """
+        Initializes a VariableBound instance.
+
+        Args:
+            varName (str | None): The name of the variable. Defaults to None.
+            dir_ (str | None): The direction of the bound, either 'U' (upper) or 'L' (lower). Defaults to None.
+            bound (int | None): The numerical bound value. Defaults to None.
+
+        Raises:
+            ValueError: If `dir_` is not 'U' or 'L' when provided.
+            TypeError: If `bound` is not an integer or None.
+        """
+        if dir_ is not None and dir_ not in {'U', 'L'}:
+            raise ValueError("dir_ must be 'U' (upper) or 'L' (lower).")
+
+        if bound is not None and not isinstance(bound, int):
+            raise TypeError("bound must be an integer or None.")
 
         self.varName = varName
         self.dir_ = dir_
         self.bound = bound
+
+    def __repr__(self) -> str:
+        """
+        Returns a string representation of the VariableBound instance.
+
+        Returns:
+            str: A formatted string representation of the object.
+        """
+        return (
+            f"VariableBound(varName={self.varName!r}, dir_={self.dir_!r}, "
+            f"bound={self.bound!r})"
+        )
 
 
 class Node:
@@ -30,14 +69,24 @@ class Node:
         left (Node | None): Left child node.
         right (Node | None): Right child node.
         parent (Node | None): Parent node.
-        obj (float | None): Solution to the LP relaxation of the node.
+        obj (float | None): Solution to the LR of the node.
         is_integer (bool): Whether the solution is integer.
         depth (int): Depth within the branch-and-bound tree.
-        var_bound (VariableBound): The variable bound linked to this node.
+        var_bound (VariableBound): The variable bound linked to this 
+            node.
     """
     count = 0
 
-    def __init__(self, parent=None, obj=None, left=None, right=None):
+    def __init__(self, parent=None, obj=None, left=None, right=None) -> None:
+        """
+        Initialises a new node.
+
+        Args:
+            parent (Node | None): Parent node.
+            obj (float | None): Solution to the LR of the node.
+            left (Node | None): Left child node.
+            right (Node | None): Right child node.
+        """
         Node.count += 1
         self.key = Node.count
         self.left = left
@@ -49,15 +98,21 @@ class Node:
         self.previous_bound = VariableBound()
         self.depth = parent.depth + 1 if parent else 1
 
-    def branch(self):
+    def branch(self) -> None:
         """Creates two children from a node."""
         assert not self.left and not self.right
         self.left = Node(parent=self)
         self.right = Node(parent=self)
 
-    def __repr__(self):
-        """Returns a string representation of the node."""
-        return f"Node({self.key})"
+    def __repr__(self) -> str:
+        """
+        Returns a string representation of the node.
+
+        Returns:
+            str: String representation of the node.
+        """
+        return (f"Node({self.key}), obj={self.obj}, bound={self.bound}, "
+                f"previous_bound={self.previous_bound}")
 
 
 class Tree:
@@ -68,22 +123,33 @@ class Tree:
         root (Node): Root node of the tree.
         node_limit (int): Maximum number of nodes allowed.
     """
-    def __init__(self):
-        self.root = Node()
-        self.node_limit = int(1e6)
+    def __init__(self) -> None:
+        """
+        Initializes a new Tree with a root node and a node limit.
 
-    def search(self, key, node):
+        Args:
+            None
+        """
+        self.root: Node = Node()
+        self.node_limit: int = int(1e6)
+
+    def search(self, key: int, node: Node | None) -> Node | None:
         """
         Finds a node in the tree that matches the given key.
 
         Args:
             key (int): The unique ID of the node to find.
-            node (Node | None): The node from which to start searching.
+            node (Node | None): The node from which to start
+                searching.
 
         Returns:
             Node | None: The matching node if found, else None.
+
+        Raises:
+            ValueError: If the key is less than 1.
         """
-        assert key >= 1
+        if key < 1:
+            raise ValueError("Key must be greater than or equal to 1")
 
         if not node or node.key > key:
             return None
@@ -93,18 +159,44 @@ class Tree:
 
         return self.search(key, node.left) or self.search(key, node.right)
 
-    def get_path_to_root(self, node):
-        """Returns the path from the given node to the root."""
-        assert node
-        path = []
+    def get_path_to_root(self, node: Node) -> list[Node]:
+        """
+        Returns the path from the given node to the root.
+
+        Args:
+            node (Node): The node from which to start the path.
+
+        Returns:
+            list[Node]: List of nodes from the given node to the root.
+
+        Raises:
+            ValueError: If the node is None.
+        """
+        if not node:
+            raise ValueError("Node cannot be None")
+
+        path: list[Node] = [node]
         while node.parent:
             path.append(node.parent)
             node = node.parent
         return path
 
-    def find_intersection(self, node1, node2):
-        """Finds the common ancestor of two nodes."""
-        assert node1 and node2
+    def find_intersection(self, node1: Node, node2: Node) -> Node | None:
+        """
+        Finds the common ancestor of two nodes.
+
+        Args:
+            node1 (Node): The first node.
+            node2 (Node): The second node.
+
+        Returns:
+            Node | None: The common ancestor node if found, else None.
+
+        Raises:
+            ValueError: If either node1 or node2 is None.
+        """
+        if not node1 or not node2:
+            raise ValueError("Both nodes must be provided")
 
         path1 = self.get_path_to_root(node1)
         path2 = self.get_path_to_root(node2)
@@ -118,75 +210,157 @@ class Tree:
 
 
 class UnexploredList:
-    """Priority queue for unexplored nodes, sorted by objective value."""
-    def __init__(self):
-        self._queue = []
+    """
+    Priority queue for unexplored nodes, sorted by objective value.
 
-    def __str__(self):
+    Attributes:
+        _queue (List[tuple]): Internal list used as a priority queue.
+    """
+    def __init__(self) -> None:
+        """Initializes an empty priority queue."""
+        self._queue: List[tuple] = []
+
+    def __str__(self) -> str:
+        """Returns a string representation of the queue."""
         return ' '.join(str(node.key) for _, _, node in self._queue)
 
     @property
-    def is_empty(self):
-        """Checks if the queue is empty."""
+    def is_empty(self) -> bool:
+        """Checks if the queue is empty.
+
+        Returns:
+            bool: True if the queue is empty, False otherwise.
+        """
         return len(self._queue) == 0
 
-    def insert(self, node):
-        """Inserts a node into the priority queue."""
-        assert node and node.obj
+    def insert(self, node: 'Node') -> None:
+        """Inserts a node into the priority queue.
+
+        Args:
+            node (Node): The node to insert.
+
+        Raises:
+            ValueError: If the node or its objective value is None.
+        """
+        if not node or node.obj is None:
+            raise ValueError("Node and its objective value must be provided")
         heapq.heappush(self._queue, (node.obj, node.key, node))
 
-    def pop(self):
-        """Removes and returns the node with the highest priority."""
+    def pop(self) -> 'Node':
+        """Removes and returns the node with the highest priority.
+
+        Returns:
+            Node: The node with the highest priority.
+
+        Raises:
+            IndexError: If the queue is empty.
+        """
         if self.is_empty:
             raise IndexError("pop from an empty queue")
         return heapq.heappop(self._queue)[2]
 
-    def peek(self):
-        """Returns the node with the highest priority without removing it."""
+    def peek(self) -> Optional['Node']:
+        """Returns the node with the highest priority without removing it.
+
+        Returns:
+            Optional[Node]: The node with the highest priority, or None if 
+                the queue is empty.
+        """
         return self._queue[0][2] if not self.is_empty else None
 
     @property
-    def size(self):
-        """Returns the number of nodes in the queue."""
+    def size(self) -> int:
+        """Returns the number of nodes in the queue.
+
+        Returns:
+            int: The number of nodes in the queue.
+        """
         return len(self._queue)
 
 
 class Bounds:
-    """Lower and upper bounds for branch and bound algorithm"""
-    def __init__(self):
-        self._best_obj = 1e10
-        self._best_bound = -1e10
-        self._absolute_tol = 1
-        self._relative_tol = 1e-5
-        self._absolute_gap = 1e10
-        self._relative_gap = 1e10
+    """
+    Lower and upper bounds for the branch-and-bound algorithm.
 
-    def update_gaps(self):
+    Attributes:
+        _best_obj (float): Best objective value found.
+        _best_bound (float): Best bound value found.
+        _absolute_tol (float): Absolute tolerance for convergence.
+        _relative_tol (float): Relative tolerance for convergence.
+        _absolute_gap (float): Absolute gap between best objective and 
+            best bound.
+        _relative_gap (float): Relative gap between best objective and 
+            best bound.
+    """
+    def __init__(self) -> None:
+        """Initializes the bounds with default values."""
+        self._best_obj: float = 1e10
+        self._best_bound: float = -1e10
+        self._absolute_tol: float = 1
+        self._relative_tol: float = 1e-5
+        self._absolute_gap: float = 1e10
+        self._relative_gap: float = 1e10
+
+    def update_gaps(self) -> None:
+        """Updates the absolute and relative gaps."""
         self._absolute_gap = self._best_obj - self._best_bound
         self._relative_gap = abs(self._absolute_gap / self._best_bound)
 
-    def update_best_obj(self, value):
-        assert value >= self._best_bound
-        assert value < self._best_obj
+    def update_best_obj(self, value: float) -> None:
+        """
+        Updates the best objective value found.
+
+        Args:
+            value (float): New best objective value.
+
+        Raises:
+            ValueError: If the value is not within the valid range.
+        """
+        if value < self._best_bound or value >= self._best_obj:
+            raise ValueError("Invalid best objective value")
         self._best_obj = value
         self.update_gaps()
 
-    def update_best_bound(self, value):
-        assert self._best_obj >= value
-        assert value > self._best_bound
+    def update_best_bound(self, value: float) -> None:
+        """
+        Updates the best bound value found.
+
+        Args:
+            value (float): New best bound value.
+
+        Raises:
+            ValueError: If the value is not within the valid range.
+        """
+        if self._best_obj < value or value <= self._best_bound:
+            raise ValueError("Invalid best bound value")
         self._best_bound = value
         self.update_gaps()
 
     @property
-    def best_obj(self):
+    def best_obj(self) -> float:
+        """Returns the best objective value found.
+
+        Returns:
+            float: The best objective value.
+        """
         return self._best_obj
 
     @property
-    def best_bound(self):
+    def best_bound(self) -> float:
+        """Returns the best bound value found.
+
+        Returns:
+            float: The best bound value.
+        """
         return self._best_bound
 
-    def check_convergence(self):
-        """Function to check if the algorithm has converged"""
+    def check_convergence(self) -> bool:
+        """
+        Checks if the algorithm has converged.
+
+        Returns:
+            bool: True if the algorithm has converged, False otherwise.
+        """
         if self._absolute_gap < self._absolute_tol:
             return True
 
@@ -197,89 +371,149 @@ class Bounds:
 
 
 class BranchAndBound:
-    """Branch-and-bound solver using a priority queue."""
-    def __init__(self, model):
+    """
+    Branch-and-bound solver using a priority queue.
+
+    Attributes:
+        tree (Tree): The search tree for the algorithm.
+        unexplored_list (UnexploredList): Priority queue for unexplored 
+            nodes.
+        bounds (Bounds): Bounds for the branch-and-bound algorithm.
+        model (pulp.LpProblem): The optimization model.
+        solution (Optional[Dict[str, float]]): The optimal solution 
+            found.
+        node_limit (int): Maximum number of nodes to explore.
+        z (float): The best objective value found.
+    """
+    def __init__(self, model: pulp.LpProblem) -> None:
+        """Initializes the Branch-and-Bound solver.
+
+        Args:
+            model (pulp.LpProblem): The optimization model.
+        """
         self.tree = Tree()
         self.unexplored_list = UnexploredList()
         self.bounds = Bounds()
         self.model = model
-        self.best_solution = None
-        self.node_limit = 1e5
+        self.solution: Optional[Dict[str, float]] = None
+        self.node_limit = int(1e5)
+        self.z = 1e10
 
-    def converges(self):
-        """Checks if the algorithm shas converged."""
-        if self.unexplored_list.is_empty():
-            return True
+    def converges(self) -> int:
+        """
+        Checks if the algorithm has converged.
+
+        Returns:
+            str: The convergence status.
+
+        Raises:
+            ValueError: If the solution is not found and unexplored
+                list is empty.
+        """
+        # If optimality gap is below tolerances
+        if self.bounds.check_convergence():
+            return BB_OPTIMAL
+
+        if self.unexplored_list.is_empty:
+            if self.solution:
+                raise ValueError("Solution cannot exist")
+            return BB_INFEASIBLE
 
         # If maximum number of nodes is exceeded
         if Node.count > self.node_limit:
-            return True
-
-        # If optimality gap is below tolerances
-        if self.bounds.check_convergence():
-            return True
+            return BB_NODE_LIMIT
 
         # If best unexplored node is worse than best integer solution
         next_best_node = self.unexplored_list.peek()
         if next_best_node and next_best_node.obj > self.bounds.best_obj:
             self.unexplored_list = UnexploredList()
-            return True
+            if self.solution:
+                raise ValueError("Solution cannot exist")
+            return BB_INFEASIBLE
 
-        return False
+        return BB_NOT_CONVERGED
 
-    def is_solution_integer(self):
-        """Checks if the solution is integer-valued."""
+    def is_solution_integer(self) -> bool:
+        """Checks if the solution is integer-valued.
+
+        Returns:
+            bool: True if the solution is integer-valued, False
+                otherwise.
+        """
         return all(var.value().is_integer() for var in self.model.variables())
 
-    def reset_model(self, origin_node, target_node):
-        if origin_node == target_node or not origin_node.parent:
-            return
+    def reset_model(self, origin_node: Node, target_node: Node) -> None:
+        """
+        Resets the model from the origin node to the target node.
 
+        Args:
+            origin_node (Node): The origin node.
+            target_node (Node): The target node.
+        """
         # Remove variable bounds
-        if not origin_node.bound:
-            return
+        if origin_node.bound.varName:
+            # Get a variable by name
+            variables_dict = self.model.variablesDict()
+            var = variables_dict[origin_node.bound.varName]
 
-        # Get a variable by name
-        variables_dict = self.model.variablesDict()
+            if origin_node.bound.varName != origin_node.previous_bound.varName:
+                raise ValueError("Bound variable names do not match")
+            if origin_node.bound.dir_ != origin_node.previous_bound.dir_:
+                raise ValueError("Bound directions do not match")
 
-        print(origin_node.bound.varName, origin_node.key)
-        var = variables_dict[origin_node.bound.varName]
+            if origin_node.bound.dir_ == 'U':
+                var.upBound = origin_node.previous_bound.bound
+            else:
+                var.lowBound = origin_node.previous_bound.bound
 
-        assert origin_node.bound.varName == origin_node.previous_bound.varName
-        assert origin_node.bound.dir == origin_node.previous_bound.dir
-
-        if origin_node.bound.dir == 'U':
-            var.upBound = origin_node.previous_bound.bound
-        else:
-            var.lowBound = origin_node.previous_bound.bound
-
-        assert origin_node.parent
-
-        self.reset_model(origin_node.parent)
-
-    def update_model(self, origin_node, target_node):
         if origin_node == target_node:
             return
 
-        assert target_node.parent
+        if not origin_node.parent:
+            raise ValueError("Origin node has no parent")
+        self.reset_model(origin_node.parent, target_node)
 
+    def update_model(self, origin_node: Node, target_node: Node) -> None:
+        """
+        Updates the model from the origin node to the target node.
+
+        Args:
+            origin_node (Node): The origin node.
+            target_node (Node): The target node.
+        """
         # Backtrack to start from the origin node
-        self.update_model(origin_node, target_node.parent)
+        if origin_node != target_node:
+            if not target_node.parent:
+                raise ValueError("Target node has no parent")
+            self.update_model(origin_node, target_node.parent)
 
-        # Add variable bounds
-        variables_dict = self.model.variablesDict()
-        var = variables_dict[origin_node.bounds.varName]
+        if target_node.bound.varName:
+            # Add variable bounds
+            variables_dict = self.model.variablesDict()
+            var = variables_dict[target_node.bound.varName]
 
-        assert origin_node.bound.varName == origin_node.previous_bound.varName
-        assert origin_node.bound.dir == origin_node.previous_bound.dir
+            if target_node.bound.varName != target_node.previous_bound.varName:
+                raise ValueError("Bound variable names do not match")
+            if target_node.bound.dir_ != target_node.previous_bound.dir_:
+                raise ValueError("Bound directions do not match")
 
-        if origin_node.bounds.dir == 'U':
-            var.upBound = origin_node.bound.bound
-        else:
-            var.lowBound = origin_node.bound.bound
+            if target_node.bound.dir_ == 'U':
+                var.upBound = target_node.bound.bound
+            else:
+                var.lowBound = target_node.bound.bound
 
-    def traverse(self, origin, destination):
+    def traverse(self, origin: Node, destination: Node) -> None:
+        """
+        Traverses from the origin node to the destination node.
+
+        Args:
+            origin (Node): The origin node.
+            destination (Node): The destination node.
+        """
         common_node = self.tree.find_intersection(origin, destination)
+
+        if not common_node:
+            raise ValueError("Intersection between paths must exist")
 
         # Reset model to common node (remove variable bounds up branch)
         self.reset_model(origin, common_node)
@@ -287,8 +521,16 @@ class BranchAndBound:
         # Add variable bounds down branch
         self.update_model(common_node, destination)
 
-    def find_most_fractional_variable(self):
-        # TODO(paula): Check solution is feasible with assertion
+    def find_most_fractional_variable(self) -> pulp.LpVariable:
+        """
+        Finds the most fractional variable in the solution.
+
+        Returns:
+            pulp.LpVariable: The most fractional variable.
+
+        Raises:
+            ValueError: If no fractional variable is found.
+        """
         best_fraction = 0
         best_var = None
 
@@ -298,62 +540,110 @@ class BranchAndBound:
 
             fraction = max(lower, upper)
 
-            if fraction < 1 and fraction > best_fraction:
+            if 0 < fraction < 1 and fraction > best_fraction:
                 best_fraction = fraction
                 best_var = var
 
-        assert best_fraction > 0
+        if best_fraction <= 0:
+            raise ValueError("No fractional variable found")
 
         return best_var
 
-    def branch(self, node):
+    def branch(self, node: Node) -> None:
+        """
+        Creates branches from the given node.
+
+        Args:
+            node (Node): The node to branch from.
+        """
         # Create branches
         node.branch()
+
+        # Reoptimise to get previous solution to the node model
+        self.model.solve(pulp.PULP_CBC_CMD(msg=False))
+        if self.model.objective.value() != node.obj:
+            raise ValueError("Objective value mismatch")
 
         # Select most fractional variable in solution
         var = self.find_most_fractional_variable()
 
         # Add variable bound to children nodes
         node.left.bound = VariableBound(
-            var.name,  'U', math.floor(var.value())
+            var.name, 'U', math.floor(var.value())
         )
-        node.left.previous_bound = VariableBound(var.name,  'U', var.upBound)
+        node.left.previous_bound = VariableBound(var.name, 'U', var.upBound)
 
         node.right.bound = VariableBound(
             var.name, 'L', math.ceil(var.value())
         )
-        node.left.previous_bound = VariableBound(var.name,  'L', var.lowBound)
+        node.right.previous_bound = VariableBound(var.name, 'L', var.lowBound)
 
-    def solve_node(self, node):
-        """Solves the LP relaxation at a given node."""
+    def print_current_solution(self) -> None:
+        """Prints the current solution."""
+        for var in self.model.variables():
+            print(f"{var.name}={var.value()}")
+
+    def solve_node(self, node: Node) -> None:
+        """
+        Solves the LP relaxation at a given node.
+
+        Args:
+            node (Node): The node to solve.
+        """
         self.model.solve(pulp.PULP_CBC_CMD(msg=False))
-        node.obj = self.model.obj.value()
+        node.obj = self.model.objective.value()
 
-        print()
-        print(f"SOLVE NODE {node.key}, obj={node.obj}")
+        self.print_current_solution()
 
         if node.obj > self.bounds.best_obj:
             return
 
         if self.is_solution_integer():
             node.is_integer = True
-            self.best_obj = node.obj
-            self.best_solution = None  # TODO: Update best solution
+            self.bounds.update_best_obj(node.obj)
+            self.z = node.obj
+            self.solution = {
+                var.name: var.value() for var in self.model.variables()
+            }
         else:
             self.unexplored_list.insert(node)
-            self.best_bound = self.unexplored_list.peek().obj
 
-    def optimize(self):
+            # Update best bound with the objective of the best unexplored
+            best_lb_node = self.unexplored_list.peek()
+
+            if not best_lb_node:
+                raise ValueError("Node must exist")
+
+            self.bounds.update_best_bound(best_lb_node.obj)
+
+    def get_objective(self) -> float:
+        """Returns the best objective value found.
+
+        Returns:
+            float: The best objective value.
+        """
+        return self.z
+
+    def get_solution(self) -> Optional[Dict[str, float]]:
+        """Returns the optimal solution found.
+
+        Returns:
+            Optional[Dict[str, float]]: The optimal solution.
+        """
+        return self.solution
+
+    def optimize(self) -> None:
         """Runs the branch-and-bound algorithm."""
         # Solve root node
         self.solve_node(self.tree.root)
         previous_node = self.tree.root
 
         # If list of unexplored is not empty, branch
-        while not self.unexplored_list.is_empty():
+        while not self.unexplored_list.is_empty:
             # Look for next node to solve (best bound search)
             selected_node = self.unexplored_list.pop()
-            assert selected_node.obj < self.bounds.best_obj
+            if selected_node.obj >= self.bounds.best_obj:
+                raise ValueError("Objective value exceeds bounds")
 
             # Update model to the selected_node
             self.traverse(previous_node, selected_node)
@@ -373,5 +663,5 @@ class BranchAndBound:
             if self.converges():
                 return
 
-            # Make current node the previos node
+            # Make current node the previous node
             previous_node = selected_node

@@ -6,3 +6,6 @@ setup_test:
 
 setup_normal:
 	pip install -e .
+
+typecheck:
+	mypy src/
