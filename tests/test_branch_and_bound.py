@@ -67,19 +67,21 @@ def test_search_larger_tree(big_tree):
 
 def test_get_path_to_root_simple_tree(simple_tree):
     """Test getting path to root in a tree with only a root node"""
-    assert simple_tree.get_path_to_root(simple_tree.root) == []
+    assert simple_tree.get_path_to_root(simple_tree.root) == [simple_tree.root]
 
 
 def test_get_path_to_root_big_tree(big_tree):
     """Test getting path to root in a tree with only a root node"""
-    expected_path = [big_tree.root.left, big_tree.root]
+    expected_path = [
+        big_tree.root.left.left, big_tree.root.left, big_tree.root
+    ]
     assert big_tree.get_path_to_root(big_tree.root.left.left) == expected_path
 
 
 def test_find_intersection_simple_tree(simple_tree):
-    assert not simple_tree.find_intersection(
+    assert simple_tree.find_intersection(
         simple_tree.root, simple_tree.root
-    )
+    ) == simple_tree.root
 
 
 def test_find_intersection_big_tree(big_tree):
