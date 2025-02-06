@@ -2,7 +2,7 @@ import heapq
 import pulp
 import math
 from typing import Dict, List, Optional
-
+from or_algorithms import utils
 
 BB_OPTIMAL = 2
 BB_NODE_LIMIT = 3
@@ -97,6 +97,7 @@ class Node:
         self.bound = VariableBound()
         self.previous_bound = VariableBound()
         self.depth = parent.depth + 1 if parent else 1
+        self.solution = None
 
     def branch(self) -> None:
         """Creates two children from a node."""
@@ -354,6 +355,15 @@ class Bounds:
         """
         return self._best_bound
 
+    @property
+    def gap(self) -> float:
+        """Returns the relative optimality gap.
+
+        Returns:
+            float: The relative optimality gap.
+        """
+        return self._relative_gap
+
     def check_convergence(self) -> bool:
         """
         Checks if the algorithm has converged.
@@ -578,10 +588,47 @@ class BranchAndBound:
         )
         node.right.previous_bound = VariableBound(var.name, 'L', var.lowBound)
 
-    def print_current_solution(self) -> None:
-        """Prints the current solution."""
+    def print_headers(self) -> None:
+        """Print headers of branch and bound progress."""
+        print("Node  | Unexpl | IntInf |    Bound  |  Objective |       Gap")
+        print("------|--------|--------|-----------|------------|-----------")
+
+    def print_inner_node_progress(self, node: Node) -> None:
+        frac_vars = utils.count_fractional_variables(node.solution)
+
+        """Print current progress to screen with aligned columns."""
+        output = f" {node.key:<5}|"  # Left-aligned, width 6
+        output += f" {self.unexplored_list.size:>6} |"
+        output += f" {frac_vars:>6} |"
+        output += f" {self.bounds.best_bound:>9,.2f} |"
+        output += f" {self.bounds.best_obj:>10,.2f} |"
+        output += f" {self.bounds.best_obj * 100:>6,.2f}% |"
+
+        print(output)
+
+    def print_root_node_progress(self) -> None:
+        frac_vars = utils.count_fractional_variables(self.tree.root.solution)
+
+        output = "Root node LP solved. "
+        output += f"Objective={self.tree.root.obj:,.2f}. "
+        output += f"Fractional variables={frac_vars}.\n"
+
+        print(output)
+
+    def print_mip_solution(self) -> None:
+        assert utils.count_fractional_variables(self.solution) == 0
+
+        output = "\nMIP solved. "
+        output += f"Best objective={self.bounds.best_obj:,.4f}. "
+        output += f"Best bound={self.bounds.best_bound:,.4f}. "
+        output += f"Gap={self.bounds.gap * 100:,.4f}%."
+
+        print(output)
+
+        print("\nSolution:")
+
         for var in self.model.variables():
-            print(f"{var.name}={var.value()}")
+            print(f"- {var.name} = {var.value():,.4f}")
 
     def solve_node(self, node: Node) -> None:
         """
@@ -591,20 +638,22 @@ class BranchAndBound:
             node (Node): The node to solve.
         """
         self.model.solve(pulp.PULP_CBC_CMD(msg=False))
-        node.obj = self.model.objective.value()
 
-        self.print_current_solution()
+        # Store solution
+        node.obj = self.model.objective.value()
+        node.solution = {
+            var.name: var.value() for var in self.model.variables()
+        }
 
         if node.obj > self.bounds.best_obj:
+            self.print_inner_node_progress(node)
             return
 
         if self.is_solution_integer():
             node.is_integer = True
             self.bounds.update_best_obj(node.obj)
             self.z = node.obj
-            self.solution = {
-                var.name: var.value() for var in self.model.variables()
-            }
+            self.solution = node.solution
         else:
             self.unexplored_list.insert(node)
 
@@ -615,6 +664,10 @@ class BranchAndBound:
                 raise ValueError("Node must exist")
 
             self.bounds.update_best_bound(best_lb_node.obj)
+
+        # Print progress to screen
+        if node.parent:
+            self.print_inner_node_progress(node)
 
     def get_objective(self) -> float:
         """Returns the best objective value found.
@@ -637,6 +690,11 @@ class BranchAndBound:
         # Solve root node
         self.solve_node(self.tree.root)
         previous_node = self.tree.root
+
+        self.print_root_node_progress()
+
+        if not self.unexplored_list.is_empty:
+            self.print_headers()
 
         # If list of unexplored is not empty, branch
         while not self.unexplored_list.is_empty:
@@ -661,6 +719,7 @@ class BranchAndBound:
 
             # Check if we found the optimal solution or proved infeasibility
             if self.converges():
+                self.print_mip_solution()
                 return
 
             # Make current node the previous node
