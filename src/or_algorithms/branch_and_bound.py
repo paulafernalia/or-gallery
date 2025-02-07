@@ -12,22 +12,21 @@ BB_NODE_LIMIT = 2
 
 
 class VariableBound:
-    """
-    Represents a variable bound in a branch-and-bound algorithm.
+    """Represents a variable bound in a branch-and-bound algorithm.
 
     Attributes:
         varName (str | None): Name of the variable.
         dir_ (str): 'U' for upper bound, 'L' for lower bound.
         bound (int): The bound value.
     """
+
     def __init__(
         self,
         varName: str | None = None,
         dir_: str | None = None,
-        bound: int | None = None
+        bound: int | None = None,
     ):
-        """
-        Initializes a VariableBound instance.
+        """Initializes a VariableBound instance.
 
         Args:
             varName (str | None): The name of the variable. Defaults to None.
@@ -38,7 +37,7 @@ class VariableBound:
             ValueError: If `dir_` is not 'U' or 'L' when provided.
             TypeError: If `bound` is not an integer or None.
         """
-        if dir_ is not None and dir_ not in {'U', 'L'}:
+        if dir_ is not None and dir_ not in {"U", "L"}:
             raise ValueError("dir_ must be 'U' (upper) or 'L' (lower).")
 
         if bound is not None and not isinstance(bound, int):
@@ -49,8 +48,7 @@ class VariableBound:
         self.bound = bound
 
     def __repr__(self) -> str:
-        """
-        Returns a string representation of the VariableBound instance.
+        """Returns a string representation of the VariableBound instance.
 
         Returns:
             str: A formatted string representation of the object.
@@ -62,8 +60,7 @@ class VariableBound:
 
 
 class Node:
-    """
-    Represents a node in a branch-and-bound tree.
+    """Represents a node in a branch-and-bound tree.
 
     Attributes:
         key (int): Unique identifier of the node.
@@ -72,21 +69,17 @@ class Node:
         parent (Node | None): Parent node.
         obj (float | None): Solution to the LR of the node.
         depth (int): Depth within the branch-and-bound tree.
-        var_bound (VariableBound | None): The variable bound linked to this 
+        var_bound (VariableBound | None): The variable bound linked to this
             node.
         solution (Optional[Dict[str, float]]): Solution to the LR of the node.
     """
+
     count = 0
 
     def __init__(
-        self,
-        parent=None,
-        left=None,
-        right=None,
-        obj=math.inf
+        self, parent=None, left=None, right=None, obj=math.inf
     ) -> None:
-        """
-        Initialises a new node.
+        """Initialises a new node.
 
         Args:
             parent (Node | None): Parent node.
@@ -114,27 +107,27 @@ class Node:
         self.right = Node(parent=self)
 
     def __repr__(self) -> str:
-        """
-        Returns a string representation of the node.
+        """Returns a string representation of the node.
 
         Returns:
             str: String representation of the node.
         """
-        return (f"Node({self.key}), obj={self.obj}, bound={self.bound}, "
-                f"previous_bound={self.previous_bound}")
+        return (
+            f"Node({self.key}), obj={self.obj}, bound={self.bound}, "
+            f"previous_bound={self.previous_bound}"
+        )
 
 
 class Tree:
-    """
-    Represents a binary tree for the branch-and-bound process.
+    """Represents a binary tree for the branch-and-bound process.
 
     Attributes:
         root (Node): Root node of the tree.
         node_limit (int): Maximum number of nodes allowed.
     """
+
     def __init__(self) -> None:
-        """
-        Initializes a new Tree with a root node and a node limit.
+        """Initializes a new Tree with a root node and a node limit.
 
         Args:
             None
@@ -143,8 +136,7 @@ class Tree:
         self.node_limit: int = int(1e6)
 
     def search(self, key: int, node: Node | None) -> Node | None:
-        """
-        Finds a node in the tree that matches the given key.
+        """Finds a node in the tree that matches the given key.
 
         Args:
             key (int): The unique ID of the node to find.
@@ -169,8 +161,7 @@ class Tree:
         return self.search(key, node.left) or self.search(key, node.right)
 
     def get_path_to_root(self, node: Node) -> list[Node]:
-        """
-        Returns the path from the given node to the root.
+        """Returns the path from the given node to the root.
 
         Args:
             node (Node): The node from which to start the path.
@@ -191,8 +182,7 @@ class Tree:
         return path
 
     def find_intersection(self, node1: Node, node2: Node) -> Node | None:
-        """
-        Finds the common ancestor of two nodes.
+        """Finds the common ancestor of two nodes.
 
         Args:
             node1 (Node): The first node.
@@ -219,19 +209,19 @@ class Tree:
 
 
 class UnexploredList:
-    """
-    Priority queue for unexplored nodes, sorted by objective value.
+    """Priority queue for unexplored nodes, sorted by objective value.
 
     Attributes:
         _queue (List[tuple]): Internal list used as a priority queue.
     """
+
     def __init__(self) -> None:
         """Initializes an empty priority queue."""
         self._queue: List[tuple] = []
 
     def __str__(self) -> str:
         """Returns a string representation of the queue."""
-        return ' '.join(str(node.key) for _, _, node in self._queue)
+        return " ".join(str(node.key) for _, _, node in self._queue)
 
     @property
     def is_empty(self) -> bool:
@@ -242,7 +232,7 @@ class UnexploredList:
         """
         return len(self._queue) == 0
 
-    def insert(self, node: 'Node') -> None:
+    def insert(self, node: "Node") -> None:
         """Inserts a node into the priority queue.
 
         Args:
@@ -255,7 +245,7 @@ class UnexploredList:
             raise ValueError("Node and its objective value must be provided")
         heapq.heappush(self._queue, (node.obj, node.key, node))
 
-    def pop(self) -> 'Node':
+    def pop(self) -> "Node":
         """Removes and returns the node with the highest priority.
 
         Returns:
@@ -268,11 +258,11 @@ class UnexploredList:
             raise IndexError("pop from an empty queue")
         return heapq.heappop(self._queue)[2]
 
-    def peek(self) -> 'Node':
+    def peek(self) -> "Node":
         """Returns the node with the highest priority without removing it.
 
         Returns:
-            Optional[Node]: The node with the highest priority, or None if 
+            Optional[Node]: The node with the highest priority, or None if
                 the queue is empty.
         """
         if self.is_empty:
@@ -291,19 +281,19 @@ class UnexploredList:
 
 
 class Bounds:
-    """
-    Lower and upper bounds for the branch-and-bound algorithm.
+    """Lower and upper bounds for the branch-and-bound algorithm.
 
     Attributes:
         _best_obj (float): Best objective value found.
         _best_bound (float): Best bound value found.
         _absolute_tol (float): Absolute tolerance for convergence.
         _relative_tol (float): Relative tolerance for convergence.
-        _absolute_gap (float): Absolute gap between best objective and 
+        _absolute_gap (float): Absolute gap between best objective and
             best bound.
-        _relative_gap (float): Relative gap between best objective and 
+        _relative_gap (float): Relative gap between best objective and
             best bound.
     """
+
     def __init__(self) -> None:
         """Initializes the bounds with default values."""
         self._best_obj: float = math.inf
@@ -319,8 +309,7 @@ class Bounds:
         self._relative_gap = abs(self._absolute_gap / self._best_bound)
 
     def update_best_obj(self, value: float) -> None:
-        """
-        Updates the best objective value found.
+        """Updates the best objective value found.
 
         Args:
             value (float): New best objective value.
@@ -329,14 +318,15 @@ class Bounds:
             ValueError: If the value is not within the valid range.
         """
         if value >= self._best_obj:
-            raise ValueError(f"New objective {value} cannot be worse than current best {self._best_bound}")
+            raise ValueError(
+                f"New objective {value} cannot be worse than current best {self._best_bound}"
+            )
 
         self._best_obj = value
         self.update_gaps()
 
     def update_best_bound(self, value: float) -> None:
-        """
-        Updates the best bound value found.
+        """Updates the best bound value found.
 
         Args:
             value (float): New best bound value.
@@ -345,10 +335,14 @@ class Bounds:
             ValueError: If the value is not within the valid range.
         """
         if self._best_obj < value:
-            raise ValueError(f"New bound {value} cannot be worse than best objective {self._best_obj}")
+            raise ValueError(
+                f"New bound {value} cannot be worse than best objective {self._best_obj}"
+            )
 
         if value < self._best_bound:
-            raise ValueError(f"New bound {value} cannot be better than current best {self._best_bound}")
+            raise ValueError(
+                f"New bound {value} cannot be better than current best {self._best_bound}"
+            )
 
         self._best_bound = value
         self.update_gaps()
@@ -381,8 +375,7 @@ class Bounds:
         return self._relative_gap
 
     def check_convergence(self) -> bool:
-        """
-        Checks if the algorithm has converged.
+        """Checks if the algorithm has converged.
 
         Returns:
             bool: True if the algorithm has converged, False otherwise.
@@ -397,20 +390,20 @@ class Bounds:
 
 
 class BranchAndBound:
-    """
-    Branch-and-bound solver using a priority queue.
+    """Branch-and-bound solver using a priority queue.
 
     Attributes:
         tree (Tree): The search tree for the algorithm.
-        unexplored_list (UnexploredList): Priority queue for unexplored 
+        unexplored_list (UnexploredList): Priority queue for unexplored
             nodes.
         bounds (Bounds): Bounds for the branch-and-bound algorithm.
         model (pulp.LpProblem): The optimization model.
-        solution (Optional[Dict[str, float]]): The optimal solution 
+        solution (Optional[Dict[str, float]]): The optimal solution
             found.
         node_limit (int): Maximum number of nodes to explore.
         z (float): The best objective value found.
     """
+
     def __init__(self, model: pulp.LpProblem) -> None:
         """Initializes the Branch-and-Bound solver.
 
@@ -426,8 +419,7 @@ class BranchAndBound:
         self.z = 1e10
 
     def check_convergence(self) -> int:
-        """
-        Checks if the algorithm has converged.
+        """Checks if the algorithm has converged.
 
         Returns:
             str: The convergence status.
@@ -478,8 +470,7 @@ class BranchAndBound:
         return all(var.value().is_integer() for var in self.model.variables())
 
     def reset_model(self, origin_node: Node, target_node: Node) -> None:
-        """
-        Resets the model from the origin node to the target node.
+        """Resets the model from the origin node to the target node.
 
         Args:
             origin_node (Node): The origin node.
@@ -496,7 +487,7 @@ class BranchAndBound:
             if origin_node.bound.dir_ != origin_node.previous_bound.dir_:
                 raise ValueError("Bound directions do not match")
 
-            if origin_node.bound.dir_ == 'U':
+            if origin_node.bound.dir_ == "U":
                 var.upBound = origin_node.previous_bound.bound
             else:
                 var.lowBound = origin_node.previous_bound.bound
@@ -509,8 +500,7 @@ class BranchAndBound:
         self.reset_model(origin_node.parent, target_node)
 
     def update_model(self, origin_node: Node, target_node: Node) -> None:
-        """
-        Updates the model from the origin node to the target node.
+        """Updates the model from the origin node to the target node.
 
         Args:
             origin_node (Node): The origin node.
@@ -532,14 +522,13 @@ class BranchAndBound:
             if target_node.bound.dir_ != target_node.previous_bound.dir_:
                 raise ValueError("Bound directions do not match")
 
-            if target_node.bound.dir_ == 'U':
+            if target_node.bound.dir_ == "U":
                 var.upBound = target_node.bound.bound
             else:
                 var.lowBound = target_node.bound.bound
 
     def traverse(self, origin: Node, destination: Node) -> None:
-        """
-        Traverses from the origin node to the destination node.
+        """Traverses from the origin node to the destination node.
 
         Args:
             origin (Node): The origin node.
@@ -557,8 +546,7 @@ class BranchAndBound:
         self.update_model(common_node, destination)
 
     def find_most_fractional_variable(self) -> pulp.LpVariable:
-        """
-        Finds the most fractional variable in the solution.
+        """Finds the most fractional variable in the solution.
 
         Returns:
             pulp.LpVariable: The most fractional variable.
@@ -585,8 +573,7 @@ class BranchAndBound:
         return best_var
 
     def branch(self, node: Node) -> None:
-        """
-        Creates branches from the given node.
+        """Creates branches from the given node.
 
         Args:
             node (Node): The node to branch from.
@@ -605,15 +592,11 @@ class BranchAndBound:
         assert node.left and node.right
 
         # Add variable bound to children nodes
-        node.left.bound = VariableBound(
-            var.name, 'U', math.floor(var.value())
-        )
-        node.left.previous_bound = VariableBound(var.name, 'U', var.upBound)
+        node.left.bound = VariableBound(var.name, "U", math.floor(var.value()))
+        node.left.previous_bound = VariableBound(var.name, "U", var.upBound)
 
-        node.right.bound = VariableBound(
-            var.name, 'L', math.ceil(var.value())
-        )
-        node.right.previous_bound = VariableBound(var.name, 'L', var.lowBound)
+        node.right.bound = VariableBound(var.name, "L", math.ceil(var.value()))
+        node.right.previous_bound = VariableBound(var.name, "L", var.lowBound)
 
     def print_headers(self) -> None:
         """Print headers of branch and bound progress."""
@@ -689,8 +672,7 @@ class BranchAndBound:
             print("\nProblem infeasible.")
 
     def solve_node(self, node: Node) -> None:
-        """
-        Solves the LP relaxation at a given node.
+        """Solves the LP relaxation at a given node.
 
         Args:
             node (Node): The node to solve.

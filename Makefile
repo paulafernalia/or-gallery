@@ -9,3 +9,6 @@ setup_normal:
 
 typecheck:
 	mypy src/
+
+autoformat:
+	black --line-length 80 src/.

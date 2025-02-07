@@ -3,7 +3,7 @@ import math
 
 
 def count_fractional_variables(solution: Optional[Dict[str, float]]) -> int:
-    """Count how many fractional variables are there in the solution"""
+    """Count how many fractional variables are there in the solution."""
 
     if not solution:
         raise ValueError("Solution dictionary cannot be empty")
