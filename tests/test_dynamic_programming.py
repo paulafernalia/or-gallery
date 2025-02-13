@@ -1,4 +1,3 @@
-import pytest
 from or_algorithms import dynamic_programming as dp
 
 
@@ -7,7 +6,10 @@ def test_empty_knapsack():
     weights = [1, 2]
     values = [3, 4]
 
-    assert dp.solve_knapsack(capacity, weights, values) == 0
+    value, policy = dp.solve_knapsack(capacity, weights, values)
+
+    assert value == 0
+    assert policy == []
 
 
 def test_empty_list_of_items():
@@ -15,7 +17,10 @@ def test_empty_list_of_items():
     weights = []
     values = []
 
-    assert dp.solve_knapsack(capacity, weights, values) == 0
+    value, policy = dp.solve_knapsack(capacity, weights, values)
+
+    assert value == 0
+    assert policy == []
 
 
 def test_simple_knapsack_fits():
@@ -23,7 +28,10 @@ def test_simple_knapsack_fits():
     weights = [8]
     values = [3]
 
-    assert dp.solve_knapsack(capacity, weights, values) == 3
+    value, policy = dp.solve_knapsack(capacity, weights, values)
+
+    assert value == 3
+    assert policy == [0]
 
 
 def test_simple_knapsack_no_fit():
@@ -31,7 +39,10 @@ def test_simple_knapsack_no_fit():
     weights = [10]
     values = [3]
 
-    assert dp.solve_knapsack(capacity, weights, values) == 0
+    value, policy = dp.solve_knapsack(capacity, weights, values)
+
+    assert value == 0
+    assert policy == []
 
 
 def test_simple_knapsack_three_items():
@@ -39,4 +50,7 @@ def test_simple_knapsack_three_items():
     weights = [10, 4, 6]
     values = [3, 2, 2]
 
-    assert dp.solve_knapsack(capacity, weights, values) == 4
+    value, policy = dp.solve_knapsack(capacity, weights, values)
+
+    assert value == 4
+    assert policy == [1, 2]
