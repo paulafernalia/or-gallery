@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Tuple
 import math
 
 
@@ -6,9 +6,9 @@ def total_value(
     W: int,
     i: int,
     ws: List[int],
-    vs: List[int],
-    hist: Dict[int, Dict[int, int]]
-) -> int:
+    vs: List[float],
+    hist: List[List[float]]
+) -> float:
     """
     Recursively calculates the maximum total value that can be obtained
     with the given knapsack capacity and available items.
@@ -44,8 +44,8 @@ def total_value(
 def backtrack(
     W: int,
     ws: List[int],
-    vs: List[int],
-    hist: Dict[int, Dict[int, int]]
+    vs: List[float],
+    hist: List[List[float]]
 ) -> List[int]:
     """
     Determines the indices of the items to be included in the knapsack
@@ -78,8 +78,8 @@ def backtrack(
 def solve_knapsack(
     W: int,
     ws: List[int],
-    vs: List[int]
-) -> int:
+    vs: List[float]
+) -> Tuple[float, List[int]]:
     """
     Solves the 0/1 knapsack problem using dynamic programming.
 
@@ -109,15 +109,15 @@ def solve_knapsack(
             raise ValueError("All values must be positive")
 
     history = [
-        [-1 for _ in range(W + 1)] for _ in range(len(vs) + 1)
+        [-1. for _ in range(W + 1)] for _ in range(len(vs) + 1)
     ]
 
     # Precompute some base cases
     for w in range(W + 1):
-        history[len(vs)][w] = 0
+        history[len(vs)][w] = 0.
 
     for i in range(len(vs) + 1):
-        history[i][0] = 0
+        history[i][0] = 0.
 
     # Maximise value
     value = total_value(W, 0, ws, vs, history)

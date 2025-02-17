@@ -197,7 +197,7 @@ def reconstruct_best_path(
 
 def solve_shortest_path(
     graph: nx.Graph, start: str, end: str
-) -> Tuple[int, List[str]]:
+) -> Tuple[float, Optional[List[str]]]:
     """Finds the shortest path between two nodes in a weighted graph.
 
     Args:
