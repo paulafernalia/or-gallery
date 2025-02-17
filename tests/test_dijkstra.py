@@ -1,4 +1,5 @@
 import pytest
+import math
 import networkx as nx
 from or_algorithms import dijkstra as djks
 
@@ -93,3 +94,14 @@ def test_shortest_path_large_graph(large_graph):
 
     assert distance == 3
     assert path == ["A", "B", "C", "D"]
+
+
+def test_shortest_path_disconnected():
+    graph = nx.Graph()
+    graph.add_edge("A", "B", weight=3)
+    graph.add_edge("C", "D", weight=10)
+
+    distance, path = djks.solve_shortest_path(graph, "A", "D")
+
+    assert distance == math.inf
+    assert path is None
