@@ -1,3 +1,4 @@
+import math
 import networkx as nx
 from sortedcontainers import SortedDict
 from typing import List, Optional, Dict, Tuple
@@ -240,6 +241,7 @@ def solve_shortest_path(
         visited[curr_key] = (curr_dist, curr_previous)
 
     if end not in visited:
-        raise ValueError(f"End node '{end}' is unreachable")
+        # End node is unreachable
+        return math.inf, None
 
     return visited[end][0], reconstruct_best_path(visited, end)
