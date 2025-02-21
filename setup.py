@@ -10,6 +10,7 @@ setup(
         "numpy>=1.14.5",
         "networkx==3.4.2",
         "sortedcontainers==2.4.0",
+        "scipy==1.15.2",
     ],
     extras_require={
         "interactive": ["jupyter", "matplotlib"],
